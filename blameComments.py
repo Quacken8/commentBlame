@@ -142,7 +142,7 @@ def main(directory):
 
     totalNumberOfLines = 0
     totalNumberOfComments = 0
-    ignoredFileExtensions = ["plugin"]
+    ignoredFileExtensions = ["plugin", ".html"]
     ignoredFileNames = ["app_localizations.dart"]
     ignoredFilePrefixes = ['.', '_']
     ignoredDirectories = []
@@ -170,7 +170,7 @@ def main(directory):
 
     print (f"Total number of lines: {totalNumberOfLines}")
     print (f"Total number of comments: {totalNumberOfComments}")
-    print (f"Percentage of comments: {totalNumberOfComments/totalNumberOfLines*100}%")
+    print (f"Percentage of comments: {totalNumberOfComments/totalNumberOfLines*100:.2f} %")
 
 if __name__ == "__main__":
     directory = ('../cz.ikariera.fairapp/')
