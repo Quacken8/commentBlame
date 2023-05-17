@@ -1,27 +1,45 @@
 #!/usr/bin/env python3
+from math import e
 import os
 
 commentSymbols = {
-    ".py": "#",
-    ".java": "//",
-    ".cpp": "//",
-    ".js": "//",
-    ".html": "<!-- -->",
-    ".css": "/* */",
-    ".php": "// or # or /* */",
-    ".rb": "#",
-    ".go": "//",
-    ".swift": "//",
-    ".c": "// or /* */",
-    ".h": "// or /* */",
-    ".dart": "//",
-    ".kt": "//",
-    ".scala": "// or /* */",
-    ".rs": "//",
-    ".sql": "-- or /* */",
-    ".pl": "#",
-    ".sh": "# or :",
+    ".py": ("#"),
+    ".java": ("//"),
+    ".cpp": ("//"),
+    ".js": ("//"),
+    ".ts": ("//"),
+    ".php": ("//", "#"),
+    ".rb": ("#"),
+    ".go": ("//"),
+    ".swift": ("//"),
+    ".c": ("//"),
+    ".h": ("//"),
+    ".json": ("//"),
+    ".dart": ("//"),
+    ".kt": ("//"),
+    ".scala": ("//"),
+    ".rs": ("//"),
+    ".sql": ("--"),
+    ".pl": ("#"),
+    ".sh": ("#", ":"),
 }
+
+pairedCommentSymbols = {
+    ".py": ('"""', '"""'),
+    ".html": ("<!--", "-->"),
+    ".css": ("/*", "*/"),
+    ".scss": ("/*", "*/"),
+    ".sass": ("/*", "*/"),
+    ".xml": ("<!--", "-->"),
+    ".json": ("/*", "*/"),
+    ".scala": ("/*", "*/"),
+    ".sql": ("/*", "*/"),
+    ".php": ("/*", "*/"),
+    ".c": ("/*", "*/"),
+    ".h": ("/*", "*/"),
+    ".dart": ("/*", "*/"),
+}
+
 
 
 def updateWithGitignore(
@@ -81,9 +99,31 @@ def getCommentsFromFile(filePath: str, commentSymbols):
     file = File(filePath.split("/")[-1], filePath)
 
     with open(file.path) as f:
+        relevantCommentSymbols = ()
+        openingCommentSymbol = ""
+        closingCommentSymbol = ""
+        fileExtension = "." + file.name.split(".")[-1]
         try:
+            relevantCommentSymbols = commentSymbols[fileExtension]
+        except KeyError:
+            print(f"File extension of file {file.name} not supported")
+            return file
+        try: # not every file extension has paired comment symbols
+            openingCommentSymbol, closingCommentSymbol = pairedCommentSymbols[fileExtension]
+        except KeyError:
+            pass
+        try:
+            commentEnd = None
             for line in f:
                 totalNumberOfLines += 1
+                # if comment is not finished look for end of comment
+                if commentEnd is not None:
+                    if commentEnd in line:
+                        file.appendComment(line.split(commentEnd)[0])
+                        commentEnd = None
+                    else:
+                        file.appendComment(line)
+                    continue
                 # remove strings
                 if '"' in line:
                     splitted = line.split('"')
@@ -91,11 +131,32 @@ def getCommentsFromFile(filePath: str, commentSymbols):
                 if "'" in line:
                     splitted = line.split("'")
                     line = " ".join(splitted[0::2])
-                for symbol in commentSymbols:
-                    if symbol in line:
-                        splitted = line.split(symbol)
-                        file.appendComment(" ".join(splitted[1:]))
+                # find comments
+                # make sure that you only take into account the first comment symbol
+                # if there are multiple comment symbols in one line the behaviour is different
+                # depending on whether the first one is a paired comment symbol or not
+                if openingCommentSymbol in line:
+                    # first check whether normal comment symbol isn't first
+                    for commentSymbol in relevantCommentSymbols:
+                        if commentSymbol in line.split(openingCommentSymbol)[0]:
+                            # found normal comment symbol earlier, don't care
+                            continue
+                    # ok, there is opening comment symbol, is there also closing comment symbol?
+                    if closingCommentSymbol in line.split(openingCommentSymbol)[-1]:
+                        file.appendComment(
+                            line.split(openingCommentSymbol)[-1].split(closingCommentSymbol)[
+                                0
+                            ]
+                        )
+                    else:
+                        file.appendComment(line.split(openingCommentSymbol)[-1])
+                        commentEnd = closingCommentSymbol
+                # now that pair comments are done, look for normal comments
+                for commentSymbol in relevantCommentSymbols:
+                    if commentSymbol in line:
+                        file.appendComment(line.split(commentSymbol)[1])
                         break
+
         except UnicodeDecodeError:
             pass
     file.numberOfLines = totalNumberOfLines
