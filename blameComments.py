@@ -1,45 +1,6 @@
 #!/usr/bin/env python3
-from math import e
 import os
-
-commentSymbols = {
-    ".py": ("#"),
-    ".java": ("//"),
-    ".cpp": ("//"),
-    ".js": ("//"),
-    ".ts": ("//"),
-    ".php": ("//", "#"),
-    ".rb": ("#"),
-    ".go": ("//"),
-    ".swift": ("//"),
-    ".c": ("//"),
-    ".h": ("//"),
-    ".json": ("//"),
-    ".dart": ("//"),
-    ".kt": ("//"),
-    ".scala": ("//"),
-    ".rs": ("//"),
-    ".sql": ("--"),
-    ".pl": ("#"),
-    ".sh": ("#", ":"),
-}
-
-pairedCommentSymbols = {
-    ".py": ('"""', '"""'),
-    ".html": ("<!--", "-->"),
-    ".css": ("/*", "*/"),
-    ".scss": ("/*", "*/"),
-    ".sass": ("/*", "*/"),
-    ".xml": ("<!--", "-->"),
-    ".json": ("/*", "*/"),
-    ".scala": ("/*", "*/"),
-    ".sql": ("/*", "*/"),
-    ".php": ("/*", "*/"),
-    ".c": ("/*", "*/"),
-    ".h": ("/*", "*/"),
-    ".dart": ("/*", "*/"),
-}
-
+from symbols import *
 
 
 def updateWithGitignore(
@@ -83,12 +44,11 @@ class File:
             print(comment)
 
 
-def getCommentsFromFile(filePath: str, commentSymbols):
+def getCommentsFromFile(filePath: str):
     """reads file and returns number of lines and number of comments
 
     Args:
         filePath (str): path to file that is to be scanned
-        commentSymbols: list of symbols that are used to mark comments
 
     Returns:
         file: file object with all the comments
@@ -100,16 +60,17 @@ def getCommentsFromFile(filePath: str, commentSymbols):
 
     with open(file.path) as f:
         relevantCommentSymbols = ()
-        openingCommentSymbol = ""
-        closingCommentSymbol = ""
+        openingCommentSymbol = None
+        closingCommentSymbol = None
         fileExtension = "." + file.name.split(".")[-1]
         try:
             relevantCommentSymbols = commentSymbols[fileExtension]
         except KeyError:
-            print(f"File extension of file {file.name} not supported")
             return file
-        try: # not every file extension has paired comment symbols
-            openingCommentSymbol, closingCommentSymbol = pairedCommentSymbols[fileExtension]
+        try:  # not every file extension has paired comment symbols
+            openingCommentSymbol, closingCommentSymbol = pairedCommentSymbols[
+                fileExtension
+            ]
         except KeyError:
             pass
         try:
@@ -135,7 +96,7 @@ def getCommentsFromFile(filePath: str, commentSymbols):
                 # make sure that you only take into account the first comment symbol
                 # if there are multiple comment symbols in one line the behaviour is different
                 # depending on whether the first one is a paired comment symbol or not
-                if openingCommentSymbol in line:
+                if openingCommentSymbol is not None and openingCommentSymbol in line:
                     # first check whether normal comment symbol isn't first
                     for commentSymbol in relevantCommentSymbols:
                         if commentSymbol in line.split(openingCommentSymbol)[0]:
@@ -144,9 +105,9 @@ def getCommentsFromFile(filePath: str, commentSymbols):
                     # ok, there is opening comment symbol, is there also closing comment symbol?
                     if closingCommentSymbol in line.split(openingCommentSymbol)[-1]:
                         file.appendComment(
-                            line.split(openingCommentSymbol)[-1].split(closingCommentSymbol)[
-                                0
-                            ]
+                            line.split(openingCommentSymbol)[-1].split(
+                                closingCommentSymbol
+                            )[0]
                         )
                     else:
                         file.appendComment(line.split(openingCommentSymbol)[-1])
@@ -218,7 +179,7 @@ def getAllFiles(
 def main(directory):
     totalNumberOfLines = 0
     totalNumberOfComments = 0
-    ignoredFileExtensions = ["plugin", ".html"]
+    ignoredFileExtensions = ["plugin", ".g.dart"]
     ignoredFileNames = ["app_localizations.dart"]
     ignoredFilePrefixes = [".", "_"]
     ignoredDirectories = []
@@ -241,20 +202,11 @@ def main(directory):
     processedFiles = []
     for file in files:
         try:
-            processedFiles.append(
-                getCommentsFromFile(
-                    file.path, commentSymbols["." + file.name.split(".")[-1]]
-                )
-            )
+            processedFiles.append(getCommentsFromFile(file.path))
         except KeyError:
             pass
 
     for file in processedFiles:
-        if file.comments == []:
-            continue
-        print("--------------------")
-        print(file.name)
-        file.printComments()
         totalNumberOfLines += file.numberOfLines
         totalNumberOfComments += len(file.comments)
 
